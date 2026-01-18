@@ -1,0 +1,97 @@
+---
+# Deploy to AWS EKS Cluster
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: demo-app-aws
+  namespace: argocd
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: default
+  
+  source:
+    repoURL: https://github.com/YOUR_USERNAME/workshop-day2.git
+    targetRevision: main
+    path: k8s
+    
+    # Kustomize overlay for AWS-specific configs
+    kustomize:
+      namePrefix: aws-
+      commonLabels:
+        environment: production
+        cloud: aws
+
+  destination:
+    server: https://YOUR_AWS_EKS_CLUSTER_URL  # Add your EKS cluster
+    namespace: demo-app
+
+  syncPolicy:
+    syncOptions:
+      - CreateNamespace=true
+    automated:
+      prune: true
+      selfHeal: true
+
+---
+# Deploy to DigitalOcean DOKS Cluster
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: demo-app-digitalocean
+  namespace: argocd
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: default
+  
+  source:
+    repoURL: https://github.com/YOUR_USERNAME/workshop-day2.git
+    targetRevision: main
+    path: k8s
+    
+    # Kustomize overlay for DigitalOcean-specific configs
+    kustomize:
+      namePrefix: do-
+      commonLabels:
+        environment: staging
+        cloud: digitalocean
+
+  destination:
+    server: https://YOUR_DOKS_CLUSTER_URL  # Add your DOKS cluster
+    namespace: demo-app
+
+  syncPolicy:
+    syncOptions:
+      - CreateNamespace=true
+    automated:
+      prune: true
+      selfHeal: true
+
+---
+# Deploy to Development Cluster (Minikube/Kind)
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: demo-app-dev
+  namespace: argocd
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: default
+  
+  source:
+    repoURL: https://github.com/YOUR_USERNAME/workshop-day2.git
+    targetRevision: develop  # Deploy from develop branch
+    path: k8s
+
+  destination:
+    server: https://kubernetes.default.svc  # Local cluster
+    namespace: demo-app-dev
+
+  syncPolicy:
+    syncOptions:
+      - CreateNamespace=true
+    automated:
+      prune: true
+      selfHeal: true

@@ -1,0 +1,311 @@
+version: '3.8'
+
+services:
+  # ==========================================
+  # Application Services
+  # ==========================================
+  
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: demo-backend
+    ports:
+      - "3001:3001"
+    environment:
+      - NODE_ENV=production
+      - PORT=3001
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_USERNAME=postgres
+      - DB_PASSWORD=postgres
+      - DB_NAME=demo_app
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - KAFKA_BROKERS=kafka:29092
+      - KAFKA_CLIENT_ID=demo-backend
+      - KAFKA_GROUP_ID=demo-backend-group
+      - CORS_ORIGIN=http://localhost:3000
+      - LOKI_HOST=http://loki:3100
+      - TEMPO_ENDPOINT=http://tempo:4318/v1/traces
+      - MIMIR_ENDPOINT=http://mimir:9009
+    depends_on:
+      - postgres
+      - redis
+      - kafka
+      - loki
+      - tempo
+    networks:
+      - app-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:3001/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  batch-processor:
+    build:
+      context: ./batch-processor
+      dockerfile: Dockerfile
+    container_name: demo-batch-processor
+    environment:
+      - NODE_ENV=production
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_USERNAME=postgres
+      - DB_PASSWORD=postgres
+      - DB_NAME=demo_app
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - KAFKA_BROKERS=kafka:29092
+      - KAFKA_CLIENT_ID=batch-processor
+      - KAFKA_GROUP_ID=batch-processor-group
+    depends_on:
+      - postgres
+      - redis
+      - kafka
+    networks:
+      - app-network
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: demo-frontend
+    ports:
+      - "3000:80"
+    environment:
+      - VITE_API_URL=http://localhost:3001
+    depends_on:
+      - backend
+    networks:
+      - app-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # ==========================================
+  # Data Layer
+  # ==========================================
+  
+  postgres:
+    image: postgres:16-alpine
+    container_name: demo-postgres
+    ports:
+      - "5432:5432"
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_DB=demo_app
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    networks:
+      - app-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    container_name: demo-redis
+    ports:
+      - "6379:6379"
+    command: redis-server --appendonly yes
+    volumes:
+      - redis-data:/data
+    networks:
+      - app-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+
+  # ==========================================
+  # Message Queue - Kafka
+  # ==========================================
+
+  zookeeper:
+    image: confluentinc/cp-zookeeper:latest
+    container_name: demo-zookeeper
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+    ports:
+      - "2181:2181"
+    networks:
+      - app-network
+    restart: unless-stopped
+
+  kafka:
+    image: confluentinc/cp-kafka:latest
+    container_name: demo-kafka
+    depends_on:
+      - zookeeper
+    ports:
+      - "9092:9092"
+      - "9094:9094"
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:29092,PLAINTEXT_HOST://localhost:9092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
+    networks:
+      - app-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "kafka-broker-api-versions", "--bootstrap-server", "localhost:9092"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
+  kafka-ui:
+    image: provectuslabs/kafka-ui:latest
+    container_name: demo-kafka-ui
+    depends_on:
+      - kafka
+    ports:
+      - "8080:8080"
+    environment:
+      KAFKA_CLUSTERS_0_NAME: local
+      KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: kafka:29092
+      KAFKA_CLUSTERS_0_ZOOKEEPER: zookeeper:2181
+    networks:
+      - app-network
+    restart: unless-stopped
+
+  # ==========================================
+  # LGTM Stack - Observability
+  # ==========================================
+
+  # Grafana - Visualization and Dashboards
+  grafana:
+    image: grafana/grafana:latest
+    container_name: demo-grafana
+    ports:
+      - "3002:3000"
+    environment:
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+      - GF_USERS_ALLOW_SIGN_UP=false
+      - GF_AUTH_ANONYMOUS_ENABLED=true
+      - GF_AUTH_ANONYMOUS_ORG_ROLE=Viewer
+    volumes:
+      - grafana-data:/var/lib/grafana
+      - ./monitoring/grafana/provisioning:/etc/grafana/provisioning
+      - ./monitoring/grafana/dashboards:/var/lib/grafana/dashboards
+    networks:
+      - app-network
+    restart: unless-stopped
+    depends_on:
+      - loki
+      - tempo
+      - mimir
+
+  # Loki - Log Aggregation
+  loki:
+    image: grafana/loki:latest
+    container_name: demo-loki
+    ports:
+      - "3100:3100"
+    command: -config.file=/etc/loki/local-config.yaml
+    volumes:
+      - loki-data:/loki
+      - ./monitoring/loki/loki-config.yaml:/etc/loki/local-config.yaml
+    networks:
+      - app-network
+    restart: unless-stopped
+
+  # Tempo - Distributed Tracing
+  tempo:
+    image: grafana/tempo:latest
+    container_name: demo-tempo
+    ports:
+      - "3200:3200"   # Tempo HTTP
+      - "4317:4317"   # OTLP gRPC
+      - "4318:4318"   # OTLP HTTP
+      - "9411:9411"   # Zipkin
+    command: [ "-config.file=/etc/tempo/tempo.yaml" ]
+    volumes:
+      - tempo-data:/tmp/tempo
+      - ./monitoring/tempo/tempo-config.yaml:/etc/tempo/tempo.yaml
+    networks:
+      - app-network
+    restart: unless-stopped
+
+  # Mimir - Metrics Storage (Prometheus compatible)
+  mimir:
+    image: grafana/mimir:latest
+    container_name: demo-mimir
+    ports:
+      - "9009:9009"
+    command: ["-config.file=/etc/mimir/mimir.yaml"]
+    volumes:
+      - mimir-data:/data
+      - ./monitoring/mimir/mimir-config.yaml:/etc/mimir/mimir.yaml
+    networks:
+      - app-network
+    restart: unless-stopped
+
+  # Prometheus - Metrics Collection
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: demo-prometheus
+    ports:
+      - "9090:9090"
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/etc/prometheus/console_libraries'
+      - '--web.console.templates=/etc/prometheus/consoles'
+      - '--storage.tsdb.retention.time=7d'
+      - '--web.enable-lifecycle'
+    volumes:
+      - prometheus-data:/prometheus
+      - ./monitoring/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
+    networks:
+      - app-network
+    restart: unless-stopped
+    depends_on:
+      - backend
+      - mimir
+
+  # Promtail - Log Shipper for Loki
+  promtail:
+    image: grafana/promtail:latest
+    container_name: demo-promtail
+    volumes:
+      - /var/log:/var/log
+      - ./monitoring/promtail/promtail-config.yaml:/etc/promtail/config.yaml
+    command: -config.file=/etc/promtail/config.yaml
+    networks:
+      - app-network
+    restart: unless-stopped
+    depends_on:
+      - loki
+
+networks:
+  app-network:
+    driver: bridge
+    name: demo-network
+
+volumes:
+  postgres-data:
+  redis-data:
+  grafana-data:
+  loki-data:
+  tempo-data:
+  mimir-data:
+  prometheus-data:

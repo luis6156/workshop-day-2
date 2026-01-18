@@ -1,0 +1,84 @@
+{
+  "dashboard": {
+    "title": "Demo Application Dashboard",
+    "tags": ["demo", "application"],
+    "timezone": "browser",
+    "panels": [
+      {
+        "id": 1,
+        "title": "HTTP Request Rate",
+        "type": "graph",
+        "gridPos": { "h": 8, "w": 12, "x": 0, "y": 0 },
+        "targets": [
+          {
+            "expr": "rate(http_requests_total[5m])",
+            "legendFormat": "{{method}} {{route}}"
+          }
+        ]
+      },
+      {
+        "id": 2,
+        "title": "HTTP Request Duration",
+        "type": "graph",
+        "gridPos": { "h": 8, "w": 12, "x": 12, "y": 0 },
+        "targets": [
+          {
+            "expr": "histogram_quantile(0.95, rate(http_request_duration_seconds_bucket[5m]))",
+            "legendFormat": "p95 {{route}}"
+          }
+        ]
+      },
+      {
+        "id": 3,
+        "title": "WebSocket Connections",
+        "type": "stat",
+        "gridPos": { "h": 4, "w": 6, "x": 0, "y": 8 },
+        "targets": [
+          {
+            "expr": "websocket_connections_total"
+          }
+        ]
+      },
+      {
+        "id": 4,
+        "title": "Redis Operations",
+        "type": "graph",
+        "gridPos": { "h": 8, "w": 12, "x": 0, "y": 12 },
+        "targets": [
+          {
+            "expr": "rate(redis_operations_total[5m])",
+            "legendFormat": "{{operation}} {{status}}"
+          }
+        ]
+      },
+      {
+        "id": 5,
+        "title": "Cache Hit Rate",
+        "type": "gauge",
+        "gridPos": { "h": 8, "w": 6, "x": 12, "y": 12 },
+        "targets": [
+          {
+            "expr": "rate(cache_hits_total[5m]) / (rate(cache_hits_total[5m]) + rate(cache_misses_total[5m]))"
+          }
+        ]
+      },
+      {
+        "id": 6,
+        "title": "Application Logs",
+        "type": "logs",
+        "gridPos": { "h": 10, "w": 24, "x": 0, "y": 20 },
+        "datasource": "Loki",
+        "targets": [
+          {
+            "expr": "{service=\"backend\"}"
+          }
+        ]
+      }
+    ],
+    "time": {
+      "from": "now-1h",
+      "to": "now"
+    },
+    "refresh": "10s"
+  }
+}

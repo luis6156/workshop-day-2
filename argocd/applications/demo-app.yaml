@@ -1,0 +1,55 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: demo-app
+  namespace: argocd
+  # Finalizer that ensures cascading deletes
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  # The project the application belongs to
+  project: default
+
+  # Source of the application manifests
+  source:
+    repoURL: https://github.com/YOUR_USERNAME/workshop-day2.git  # CHANGE THIS
+    targetRevision: HEAD  # or specific branch/tag
+    path: k8s  # Path to Kubernetes manifests
+
+  # Destination cluster and namespace
+  destination:
+    server: https://kubernetes.default.svc  # In-cluster
+    namespace: demo-app
+
+  # Sync policy
+  syncPolicy:
+    # Automatically create namespace if it doesn't exist
+    syncOptions:
+      - CreateNamespace=true
+    
+    # Automated sync
+    automated:
+      # Automatically sync when Git changes
+      prune: true  # Delete resources that are no longer in Git
+      selfHeal: true  # Force sync when cluster state differs from Git
+      allowEmpty: false
+
+    # Retry strategy
+    retry:
+      limit: 5
+      backoff:
+        duration: 5s
+        factor: 2
+        maxDuration: 3m
+
+  # Health assessment
+  ignoreDifferences:
+    - group: apps
+      kind: Deployment
+      jsonPointers:
+        - /spec/replicas  # Ignore HPA-managed replicas
+
+  # Sync waves for ordered deployment
+  # info:
+  #   - name: 'Sync Wave'
+  #     value: '0'  # Lower numbers sync first

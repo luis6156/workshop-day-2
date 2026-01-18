@@ -1,0 +1,41 @@
+# DigitalOcean API token
+do_token = "your-digitalocean-api-token"
+
+# General configuration
+region       = "nyc1"  # or sfo3, lon1, fra1, etc.
+environment  = "production"
+project_name = "demo-app"
+
+# Networking
+vpc_cidr = "10.10.0.0/16"
+
+# Kubernetes cluster
+kubernetes_version = "1.28.2-do.0"
+node_size         = "s-2vcpu-4gb"  # or s-4vcpu-8gb for production
+node_min_count    = 2
+node_max_count    = 5
+auto_upgrade      = false
+
+# Container Registry
+registry_tier = "basic"  # or starter, professional
+
+# Managed PostgreSQL
+enable_managed_db = true
+db_size          = "db-s-2vcpu-4gb"  # or db-s-4vcpu-8gb for production
+db_node_count    = 1  # Set to 2 for high availability
+
+# Managed Redis
+enable_managed_redis = true
+redis_size          = "db-s-1vcpu-1gb"  # or db-s-2vcpu-4gb for production
+
+# Load Balancer
+create_load_balancer = false  # Kubernetes will create automatically
+ssl_certificate_name = ""     # If you have SSL cert
+
+# Backup
+create_backup_bucket   = false
+backup_retention_days  = 30
+
+# Monitoring
+enable_monitoring = true
+alert_email      = "ops@example.com"

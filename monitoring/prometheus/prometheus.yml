@@ -1,0 +1,40 @@
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+  external_labels:
+    cluster: 'demo-cluster'
+    environment: 'development'
+
+# Scrape configurations
+scrape_configs:
+  # Backend application metrics
+  - job_name: 'demo-backend'
+    static_configs:
+      - targets: ['backend:3001']
+        labels:
+          service: 'backend'
+          app: 'demo-backend'
+    metrics_path: '/metrics'
+    scrape_interval: 10s
+
+  # Prometheus self-monitoring
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']
+        labels:
+          service: 'prometheus'
+
+  # Redis exporter (if added)
+  - job_name: 'redis'
+    static_configs:
+      - targets: ['redis:6379']
+        labels:
+          service: 'redis'
+
+# Remote write to Mimir
+remote_write:
+  - url: http://mimir:9009/api/v1/push
+    queue_config:
+      max_samples_per_send: 1000
+      max_shards: 200
+      capacity: 2500

@@ -1,0 +1,52 @@
+apiVersion: argoproj.io/v1alpha1
+kind: AppProject
+metadata:
+  name: demo-project
+  namespace: argocd
+spec:
+  description: Demo Application Project
+
+  # Allow deployments to these namespaces
+  destinations:
+    - namespace: demo-app
+      server: '*'
+    - namespace: demo-app-*
+      server: '*'
+
+  # Source repositories
+  sourceRepos:
+    - 'https://github.com/YOUR_USERNAME/workshop-day2.git'
+    - 'https://github.com/YOUR_ORG/*'
+
+  # Cluster resource whitelist
+  clusterResourceWhitelist:
+    - group: ''
+      kind: Namespace
+    - group: ''
+      kind: PersistentVolume
+    - group: 'rbac.authorization.k8s.io'
+      kind: ClusterRole
+    - group: 'rbac.authorization.k8s.io'
+      kind: ClusterRoleBinding
+
+  # Namespace resource whitelist (empty = allow all)
+  namespaceResourceWhitelist:
+    - group: '*'
+      kind: '*'
+
+  # Roles for RBAC
+  roles:
+    - name: developer
+      description: Developer role with read-only access
+      policies:
+        - p, proj:demo-project:developer, applications, get, demo-project/*, allow
+        - p, proj:demo-project:developer, applications, sync, demo-project/*, allow
+      groups:
+        - developers
+
+    - name: admin
+      description: Admin role with full access
+      policies:
+        - p, proj:demo-project:admin, applications, *, demo-project/*, allow
+      groups:
+        - admins
