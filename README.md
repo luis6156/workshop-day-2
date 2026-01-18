@@ -1,4 +1,4 @@
-# Cloud Native Demo Application
+# Cloud Native Demo Application - Workshop
 
 A comprehensive demo application showcasing modern cloud-native technologies and observability practices.
 
