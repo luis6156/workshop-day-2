@@ -48,32 +48,36 @@ async function startServer() {
   }
 }
 
-startServer();
+// Start the server and store references
+let serverInstance: any;
+let ioInstance: any;
 
-  // Graceful shutdown
-  process.on('SIGTERM', async () => {
-    logger.info('SIGTERM signal received: closing HTTP server');
-    await shutdown();
-  });
+startServer().then(({ server, io }) => {
+  serverInstance = server;
+  ioInstance = io;
+});
 
-  process.on('SIGINT', async () => {
-    logger.info('SIGINT signal received: closing HTTP server');
-    await shutdown();
-  });
-}
+// Graceful shutdown
+process.on('SIGTERM', async () => {
+  logger.info('SIGTERM signal received: closing HTTP server');
+  await shutdown();
+});
+
+process.on('SIGINT', async () => {
+  logger.info('SIGINT signal received: closing HTTP server');
+  await shutdown();
+});
 
 async function shutdown() {
   try {
-    const { server, io } = await startServer();
-    
-    if (server) {
-      server.close(() => {
+    if (serverInstance) {
+      serverInstance.close(() => {
         logger.info('HTTP server closed');
       });
     }
     
-    if (io) {
-      io.close(() => {
+    if (ioInstance) {
+      ioInstance.close(() => {
         logger.info('Socket.IO server closed');
       });
     }
@@ -106,5 +110,3 @@ process.on('unhandledRejection', (reason, promise) => {
   logger.error('Unhandled rejection at:', promise, 'reason:', reason);
   process.exit(1);
 });
-
-export { app, httpServer, io };

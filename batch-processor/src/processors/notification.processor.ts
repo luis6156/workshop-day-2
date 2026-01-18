@@ -1,6 +1,6 @@
 import { kafkaService, KafkaTopics } from '../services/kafka.service';
-import { AppDataSource } from '../../../../backend/src/database/data-source';
-import { Notification, NotificationStatus } from '../../../../backend/src/database/entities/Notification';
+import { AppDataSource } from '../database/data-source';
+import { Notification, NotificationStatus } from '../database/entities/Notification';
 import { logger } from '../utils/logger';
 
 class NotificationProcessor {

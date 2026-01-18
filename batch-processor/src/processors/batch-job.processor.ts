@@ -1,15 +1,14 @@
 import { Queue, Worker, Job } from 'bullmq';
-import { AppDataSource } from '../../../../backend/src/database/data-source';
-import { BatchJob, BatchJobType, BatchJobStatus } from '../../../../backend/src/database/entities/BatchJob';
-import { NotificationStatus } from '../../../../backend/src/database/entities/Notification';
+import { AppDataSource } from '../database/data-source';
+import { BatchJob, BatchJobType, BatchJobStatus } from '../database/entities/BatchJob';
+import { NotificationStatus } from '../database/entities/Notification';
 import { logger } from '../utils/logger';
-import Redis from 'ioredis';
 
-const connection = new Redis({
+const connectionOptions = {
   host: process.env.REDIS_HOST || 'localhost',
   port: parseInt(process.env.REDIS_PORT || '6379', 10),
   maxRetriesPerRequest: null,
-});
+};
 
 class BatchJobProcessor {
   private queue: Queue;
@@ -17,7 +16,7 @@ class BatchJobProcessor {
   private batchJobRepository = AppDataSource.getRepository(BatchJob);
 
   constructor() {
-    this.queue = new Queue('batch-jobs', { connection });
+    this.queue = new Queue('batch-jobs', { connection: connectionOptions });
   }
 
   async start() {
@@ -27,7 +26,7 @@ class BatchJobProcessor {
         return this.processJob(job);
       },
       {
-        connection,
+        connection: connectionOptions,
         concurrency: 5,
         limiter: {
           max: 10,

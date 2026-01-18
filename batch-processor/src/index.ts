@@ -1,5 +1,5 @@
 import 'reflect-metadata';
-import { AppDataSource } from '../../../backend/src/database/data-source';
+import { AppDataSource } from './database/data-source';
 import { kafkaService } from './services/kafka.service';
 import { batchJobProcessor } from './processors/batch-job.processor';
 import { notificationProcessor } from './processors/notification.processor';
