@@ -23,24 +23,13 @@ compactor:
   compaction:
     block_retention: 168h  # 7 days
 
-metrics_generator:
-  registry:
-    external_labels:
-      source: tempo
-      cluster: demo-cluster
-  storage:
-    path: /tmp/tempo/generator/wal
-    remote_write:
-      - url: http://mimir:9009/api/v1/push
-        send_exemplars: true
-
 storage:
   trace:
     backend: local
     wal:
-      path: /tmp/tempo/wal
+      path: /var/tempo/wal
     local:
-      path: /tmp/tempo/blocks
+      path: /var/tempo/blocks
 
 overrides:
   metrics_generator_processors: [service-graphs, span-metrics]
